@@ -1,0 +1,384 @@
+{% extends "base.html" %}
+{% block title %}貪吃蛇遊戲{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-md-8 mx-auto text-center">
+            <h2>🐍 貪吃蛇遊戲</h2>
+            
+            <!-- 遊戲資訊 -->
+            <div class="row mb-3">
+                <div class="col-3">
+                    <div class="card">
+                        <div class="card-body p-2">
+                            <small class="text-muted">分數</small>
+                            <h5 id="score">0</h5>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-3">
+                    <div class="card">
+                        <div class="card-body p-2">
+                            <small class="text-muted">最高分</small>
+                            <h5 id="highScore">0</h5>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-3">
+                    <div class="card">
+                        <div class="card-body p-2">
+                            <small class="text-muted">生命</small>
+                            <h5 id="lives">0</h5>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-3">
+                    <div class="card">
+                        <div class="card-body p-2">
+                            <small class="text-muted">死亡</small>
+                            <h5 id="deaths">0</h5>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 遊戲畫布 -->
+            <div class="game-container mb-3">
+                <canvas id="gameCanvas" width="600" height="400"></canvas>
+            </div>
+
+            <!-- 控制按鈕 -->
+            <div class="controls mb-3">
+                <button id="startBtn" class="btn btn-success me-2">開始遊戲</button>
+                <button id="pauseBtn" class="btn btn-warning me-2" disabled>暫停</button>
+                <button id="resetBtn" class="btn btn-danger me-2">重新開始</button>
+                <a href="{{ url_for('game.game_menu') }}" class="btn btn-secondary">返回選單</a>
+            </div>
+
+            <!-- 控制說明 -->
+            <div class="card">
+                <div class="card-body">
+                    <h6>控制說明</h6>
+                    <p class="mb-0">
+                        <kbd>↑</kbd> <kbd>↓</kbd> <kbd>←</kbd> <kbd>→</kbd> 控制方向 |
+                        <span class="text-success">綠色食物</span> +1分 |
+                        <span class="text-primary">藍色護身符</span> +1生命 |
+                        <span class="text-danger">紅色炸彈</span> -1生命
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.game-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+#gameCanvas {
+    border: 2px solid #333;
+    background-color: #000;
+}
+
+.controls button {
+    min-width: 100px;
+}
+</style>
+
+<script>
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+const scoreElement = document.getElementById('score');
+const highScoreElement = document.getElementById('highScore');
+const livesElement = document.getElementById('lives');
+const deathsElement = document.getElementById('deaths');
+const startBtn = document.getElementById('startBtn');
+const pauseBtn = document.getElementById('pauseBtn');
+const resetBtn = document.getElementById('resetBtn');
+
+// 遊戲常數
+const CELL_SIZE = 20;
+const COLS = canvas.width / CELL_SIZE;
+const ROWS = canvas.height / CELL_SIZE;
+const FPS = 10;
+
+// 遊戲變數
+let gameRunning = false;
+let gamePaused = false;
+let gameLoop;
+let snake = [];
+let direction = { x: 1, y: 0 };
+let score = 0;
+let highScore = 0;
+let lives = 0;
+let deaths = 0;
+let foods = [];
+let bombs = [];
+
+// 初始化遊戲
+function initGame() {
+    snake = [
+        { x: 5, y: 10 },
+        { x: 4, y: 10 },
+        { x: 3, y: 10 }
+    ];
+    direction = { x: 1, y: 0 };
+    score = 0;
+    lives = 0;
+    foods = [];
+    bombs = [];
+    spawnFood();
+    updateDisplay();
+}
+
+function spawnFood() {
+    // 生成普通食物
+    for (let i = 0; i < 2; i++) {
+        const food = {
+            x: Math.floor(Math.random() * COLS),
+            y: Math.floor(Math.random() * ROWS),
+            type: 'normal'
+        };
+        foods.push(food);
+    }
+    
+    // 20% 機率生成護身符
+    if (Math.random() < 0.2) {
+        const shield = {
+            x: Math.floor(Math.random() * COLS),
+            y: Math.floor(Math.random() * ROWS),
+            type: 'shield'
+        };
+        foods.push(shield);
+    }
+}
+
+function spawnBomb() {
+    if (Math.random() < 0.02) {
+        const bomb = {
+            x: Math.floor(Math.random() * COLS),
+            y: Math.floor(Math.random() * ROWS),
+            timer: FPS * 4
+        };
+        bombs.push(bomb);
+    }
+}
+
+function draw() {
+    // 清空畫布
+    ctx.fillStyle = '#000';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    // 畫蛇
+    ctx.fillStyle = '#0f0';
+    snake.forEach(segment => {
+        ctx.fillRect(segment.x * CELL_SIZE, segment.y * CELL_SIZE, CELL_SIZE, CELL_SIZE);
+    });
+    
+    // 畫食物
+    foods.forEach(food => {
+        ctx.fillStyle = food.type === 'normal' ? '#ff0' : '#00f';
+        ctx.fillRect(food.x * CELL_SIZE, food.y * CELL_SIZE, CELL_SIZE, CELL_SIZE);
+    });
+    
+    // 畫炸彈
+    ctx.fillStyle = '#f00';
+    bombs.forEach(bomb => {
+        ctx.fillRect(bomb.x * CELL_SIZE, bomb.y * CELL_SIZE, CELL_SIZE, CELL_SIZE);
+    });
+}
+
+function update() {
+    if (!gameRunning || gamePaused) return;
+    
+    // 移動蛇
+    const head = { ...snake[0] };
+    head.x += direction.x;
+    head.y += direction.y;
+    
+    // 檢查碰撞
+    let died = false;
+    
+    // 撞牆或撞自己
+    if (head.x < 0 || head.x >= COLS || head.y < 0 || head.y >= ROWS || 
+        snake.some(segment => segment.x === head.x && segment.y === head.y)) {
+        if (lives > 0) {
+            lives--;
+            // 嘗試避開障礙
+            const alternatives = [
+                { x: 1, y: 0 }, { x: -1, y: 0 }, { x: 0, y: 1 }, { x: 0, y: -1 }
+            ];
+            let found = false;
+            for (let newDir of alternatives) {
+                if (newDir.x === -direction.x && newDir.y === -direction.y) continue;
+                const newHead = { x: snake[0].x + newDir.x, y: snake[0].y + newDir.y };
+                if (newHead.x >= 0 && newHead.x < COLS && newHead.y >= 0 && newHead.y < ROWS &&
+                    !snake.some(segment => segment.x === newHead.x && segment.y === newHead.y)) {
+                    direction = newDir;
+                    head.x = newHead.x;
+                    head.y = newHead.y;
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) died = true;
+        } else {
+            died = true;
+        }
+    }
+    
+    if (!died) {
+        snake.unshift(head);
+        
+        // 檢查吃食物
+        let ate = false;
+        foods = foods.filter(food => {
+            if (food.x === head.x && food.y === head.y) {
+                if (food.type === 'normal') {
+                    score++;
+                } else if (food.type === 'shield') {
+                    lives++;
+                }
+                ate = true;
+                return false;
+            }
+            return true;
+        });
+        
+        // 檢查炸彈
+        bombs = bombs.filter(bomb => {
+            if (bomb.x === head.x && bomb.y === head.y) {
+                if (lives > 0) {
+                    lives--;
+                    return false;
+                } else {
+                    died = true;
+                    return true;
+                }
+            }
+            bomb.timer--;
+            return bomb.timer > 0;
+        });
+        
+        if (!ate) {
+            snake.pop();
+        }
+    }
+    
+    if (died) {
+        deaths++;
+        if (score > highScore) {
+            highScore = score;
+        }
+        
+        // 儲存分數
+        saveScore();
+        
+        setTimeout(() => {
+            if (confirm(`遊戲結束！分數: ${score}\n是否重新開始？`)) {
+                resetGame();
+                startGame();
+            } else {
+                stopGame();
+            }
+        }, 100);
+        return;
+    }
+    
+    // 生成新食物和炸彈
+    if (foods.length < 3) {
+        spawnFood();
+    }
+    spawnBomb();
+    
+    updateDisplay();
+}
+
+function updateDisplay() {
+    scoreElement.textContent = score;
+    highScoreElement.textContent = highScore;
+    livesElement.textContent = lives;
+    deathsElement.textContent = deaths;
+}
+
+function startGame() {
+    if (!gameRunning) {
+        gameRunning = true;
+        gameLoop = setInterval(() => {
+            update();
+            draw();
+        }, 1000 / FPS);
+        startBtn.disabled = true;
+        pauseBtn.disabled = false;
+    }
+}
+
+function pauseGame() {
+    gamePaused = !gamePaused;
+    pauseBtn.textContent = gamePaused ? '繼續' : '暫停';
+}
+
+function stopGame() {
+    gameRunning = false;
+    gamePaused = false;
+    if (gameLoop) {
+        clearInterval(gameLoop);
+    }
+    startBtn.disabled = false;
+    pauseBtn.disabled = true;
+    pauseBtn.textContent = '暫停';
+}
+
+function resetGame() {
+    stopGame();
+    initGame();
+    draw();
+}
+
+function saveScore() {
+    fetch('/game/save_score', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            game_type: 'snake',
+            score: score,
+            level: 1
+        })
+    });
+}
+
+// 事件監聽
+document.addEventListener('keydown', (e) => {
+    if (!gameRunning || gamePaused) return;
+    
+    switch (e.key) {
+        case 'ArrowUp':
+            if (direction.y === 0) direction = { x: 0, y: -1 };
+            break;
+        case 'ArrowDown':
+            if (direction.y === 0) direction = { x: 0, y: 1 };
+            break;
+        case 'ArrowLeft':
+            if (direction.x === 0) direction = { x: -1, y: 0 };
+            break;
+        case 'ArrowRight':
+            if (direction.x === 0) direction = { x: 1, y: 0 };
+            break;
+    }
+});
+
+startBtn.addEventListener('click', startGame);
+pauseBtn.addEventListener('click', pauseGame);
+resetBtn.addEventListener('click', resetGame);
+
+// 初始化
+initGame();
+draw();
+</script>
+{% endblock %}

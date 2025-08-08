@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}管理中心{% endblock %}
+{% block content %}
+<h2>📂 管理中心</h2>
+
+<h4 class="mt-4">📝 代辦事項</h4>
+<form method="POST" action="{{ url_for('todo_bp.add_todo') }}" class="input-group mb-3">
+  <input type="text" name="content" class="form-control" placeholder="新增事項..." required>
+  <button class="btn btn-primary" type="submit">新增</button>
+</form>
+<ul class="list-group mb-4">
+  {% for item in todos %}
+    <li class="list-group-item {% if item.done %}list-group-item-success{% endif %}">
+      {{ item.content }}
+    </li>
+  {% endfor %}
+</ul>
+
+<h4 class="mt-4">💰 記帳紀錄</h4>
+<form method="POST" action="{{ url_for('record.record') }}" class="row g-3 mb-3">
+  <div class="col-md-8">
+    <input type="text" name="description" class="form-control" placeholder="支出描述..." required>
+  </div>
+  <div class="col-md-2">
+    <input type="number" step="0.01" name="amount" class="form-control" placeholder="金額" required>
+  </div>
+  <div class="col-md-2">
+    <button class="btn btn-success w-100" type="submit">新增</button>
+  </div>
+</form>
+<table class="table table-sm">
+  <thead><tr><th>日期</th><th>描述</th><th class="text-end">金額</th></tr></thead>
+  <tbody>
+  {% for r in records %}
+    <tr><td>{{ r.date.strftime('%Y-%m-%d') }}</td><td>{{ r.description }}</td><td class="text-end">{{ '%.2f'|format(r.amount) }}</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+
+<a href="{{ url_for('auth.dashboard') }}" class="btn btn-secondary mt-3">← 返回主頁</a>
+{% endblock %}

@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block title %}遊戲啟動{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+  <h2>🎉 遊戲已啟動！</h2>
+  <p>請查看是否開啟了新的視窗。</p>
+  <a href="{{ url_for('game.game_menu') }}" class="btn btn-primary mt-3">返回遊戲選單</a>
+</div>
+{% endblock %}

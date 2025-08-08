@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+{% block title %}遊戲選單{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2 class="text-center mb-4">🎮 遊戲選單</h2>
+    
+    <!-- 個人最佳記錄 -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">🏆 個人最佳記錄</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row text-center">
+                        <div class="col-md-4">
+                            <h4 class="text-success">{{ stats.snake_best }}</h4>
+                            <small class="text-muted">貪吃蛇最高分</small>
+                        </div>
+                        <div class="col-md-4">
+                            <h4 class="text-info">{{ stats.space_best }}</h4>
+                            <small class="text-muted">太空射擊最高分</small>
+                        </div>
+                        <div class="col-md-4">
+                            <h4 class="text-warning">{{ stats.guess_best }}</h4>
+                            <small class="text-muted">猜數字最高分</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 遊戲選項 -->
+    <div class="row">
+        <div class="col-md-4 mb-4">
+            <div class="card h-100 game-card">
+                <div class="card-body text-center">
+                    <div class="game-icon mb-3">🐍</div>
+                    <h5 class="card-title">貪吃蛇</h5>
+                    <p class="card-text">經典的貪吃蛇遊戲，控制蛇吃食物並避免撞到牆壁或自己</p>
+                    <p class="text-muted small">最佳分數: {{ stats.snake_best }}</p>
+                    <a href="{{ url_for('game.play_snake') }}" class="btn btn-success">
+                        <i class="fas fa-play me-1"></i>開始遊戲
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4 mb-4">
+            <div class="card h-100 game-card">
+                <div class="card-body text-center">
+                    <div class="game-icon mb-3">🚀</div>
+                    <h5 class="card-title">太空射擊</h5>
+                    <p class="card-text">由簡易的圖形代表太空船，駕駛太空船擊敗敵人，收集道具提升能力</p>
+                    <p class="text-muted small">最佳分數: {{ stats.space_best }}</p>
+                    <a href="{{ url_for('game.play_space_shooter') }}" class="btn btn-info">
+                        <i class="fas fa-rocket me-1"></i>開始遊戲
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4 mb-4">
+            <div class="card h-100 game-card">
+                <div class="card-body text-center">
+                    <div class="game-icon mb-3">🎯</div>
+                    <h5 class="card-title">猜數字遊戲</h5>
+                    <p class="card-text">猜出1-100之間的神秘數字，挑戰你的邏輯推理能力</p>
+                    <p class="text-muted small">最佳分數: {{ stats.guess_best }}</p>
+                    <a href="{{ url_for('game.play_guess_number') }}" class="btn btn-warning">
+                        <i class="fas fa-brain me-1"></i>開始遊戲
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 排行榜連結 
+    <div class="row mt-4">
+        <div class="col-12 text-center">
+            <h4 class="mb-3">🏅 排行榜</h4>
+            <a href="{{ url_for('game.leaderboard', game_type='snake') }}" class="btn btn-outline-success me-2">
+                貪吃蛇排行榜
+            </a>
+            <a href="{{ url_for('game.leaderboard', game_type='space_shooter') }}" class="btn btn-outline-info me-2">
+                太空射擊排行榜
+            </a>
+            <a href="{{ url_for('game.leaderboard', game_type='guess_number') }}" class="btn btn-outline-warning">
+                猜數字排行榜
+            </a>
+        </div>
+    </div>
+    -->
+
+    <div class="text-center mt-4">
+        <a href="{{ url_for('dashboard.dashboard_view') }}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left me-1"></i>返回主頁
+        </a>
+    </div>
+</div>
+
+<style>
+.game-card {
+    transition: transform 0.2s;
+    border: none;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.game-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+}
+
+.game-icon {
+    font-size: 3rem;
+}
+</style>
+{% endblock %}

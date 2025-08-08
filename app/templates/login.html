@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}Login - InfoPlay{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-md-4">
+    <h2 class="mb-3">Login</h2>
+    <form method="POST">
+      {{ form.hidden_tag() }}
+      <div class="mb-3">{{ form.username.label(class="form-label") }} {{ form.username(class="form-control") }}</div>
+      <div class="mb-3">{{ form.password.label(class="form-label") }} {{ form.password(class="form-control") }}</div>
+      {{ form.submit(class="btn btn-primary w-100") }}
+    </form>
+    <p class="mt-2">No account? <a href="{{ url_for('auth.register') }}">Register</a></p>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+
+{% block title %}新聞區{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>即時新聞（臺灣）</h2>
+    
+    {% for art in articles %}
+    <div class="card mb-3">
+        <div class="card-body">
+            <h5><a href="{{ art.url }}" target="_blank" class="text-decoration-none">{{ art.title }}</a></h5>
+            <p class="card-text">{{ art.description }}</p>
+            <small class="text-muted">{{ art.source.name }} · {{ art.publishedAt[:10] }}</small>
+        </div>
+    </div>
+    {% else %}
+    <div class="alert alert-info" role="alert">
+        目前沒有新聞資料
+    </div>
+    {% endfor %}
+    
+    <a href="{{ url_for('dashboard.dashboard_view') }}" class="btn btn-secondary mt-3">← 返回主頁</a>
+</div>
+{% endblock %}

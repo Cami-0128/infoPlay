@@ -1,0 +1,189 @@
+{% extends 'base.html' %}
+{% block title %}帳號管理{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+  <!-- Flash 訊息顯示 -->
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      {% for category, message in messages %}
+        <div class="alert alert-{{ 'danger' if category == 'error' else category }} alert-dismissible fade show" role="alert">
+          {{ message }}
+          <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+      {% endfor %}
+    {% endif %}
+  {% endwith %}
+
+  <!-- 待辦事項區塊 -->
+  <div class="row">
+    <div class="col-md-6">
+      <h2 class="mb-4">📋 待辦事項</h2>
+      <form method="POST" action="{{ url_for('account.account_home') }}" class="input-group mb-3">
+        <input type="text" name="content" class="form-control" placeholder="新增事項..." required>
+        <button class="btn btn-success" type="submit">
+          <i class="fas fa-plus me-1"></i>新增
+        </button>
+      </form>
+
+      <ul class="list-group" id="todo-list">
+        {% for item in todos %}
+        <li class="list-group-item d-flex justify-content-between align-items-center {% if item.done %}list-group-item-success{% endif %}" data-id="{{ item.id }}">
+          <span {% if item.done %}class="text-decoration-line-through text-muted"{% endif %}>
+            {{ item.content }}
+          </span>
+          <div>
+            {% if not item.done %}
+            <a href="{{ url_for('account.toggle_todo', id=item.id) }}" class="btn btn-sm btn-success me-1">
+              <i class="fas fa-check me-1"></i>完成
+            </a>
+            {% else %}
+            <a href="{{ url_for('account.toggle_todo', id=item.id) }}" class="btn btn-sm btn-warning me-1">
+              <i class="fas fa-undo me-1"></i>復原
+            </a>
+            {% endif %}
+            <a href="{{ url_for('account.delete_todo', id=item.id) }}" class="btn btn-sm btn-danger"
+               onclick="return confirm('確定要刪除這個待辦事項嗎？')">
+              <i class="fas fa-trash me-1"></i>刪除
+            </a>
+          </div>
+        </li>
+        {% endfor %}
+        {% if todos|length == 0 %}
+        <li class="list-group-item text-center text-muted">目前沒有待辦事項</li>
+        {% endif %}
+      </ul>
+    </div>
+
+    <!-- 記帳紀錄區塊 -->
+    <div class="col-md-6">
+      <h2 class="mb-4">💰 記帳紀錄</h2>
+      <form method="POST" action="{{ url_for('record_bp.add_record') }}" class="mb-3">
+        <div class="row g-2">
+          <div class="col-8">
+            <input type="text" name="description" class="form-control" placeholder="描述" required>
+          </div>
+          <div class="col-4">
+            <div class="input-group">
+              <input type="number" name="amount" step="0.01" class="form-control" placeholder="金額" required>
+              <button type="submit" class="btn btn-success">
+                <i class="fas fa-plus me-1"></i>新增
+              </button>
+            </div>
+          </div>
+        </div>
+      </form>
+
+      <div class="card">
+        <div class="card-header">
+          <h6 class="mb-0">最近記錄</h6>
+        </div>
+        <div class="card-body p-0">
+          {% if records %}
+            <div class="table-responsive">
+              <table class="table table-sm mb-0">
+                <tbody>
+                  {% set total = 0 %}
+                  {% for r in records[:5] %}
+                    {% set total = total + r.amount %}
+                    <tr>
+                      <td class="text-nowrap">{{ r.date.strftime('%m-%d') }}</td>
+                      <td>{{ r.description[:15] }}{% if r.description|length > 15 %}...{% endif %}</td>
+                      <td class="text-end {% if r.amount < 0 %}text-danger{% else %}text-success{% endif %}">
+                        ${{ '%.2f'|format(r.amount) }}
+                      </td>
+                      <td class="text-end">
+                        <a href="{{ url_for('record_bp.delete_record', id=r.id) }}" 
+                           class="btn btn-sm btn-outline-danger"
+                           onclick="return confirm('確定要刪除這筆記錄嗎？')">
+                          <i class="fas fa-trash me-1"></i>刪除
+                        </a>
+                      </td>
+                    </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+            <div class="card-footer bg-light">
+              {% set all_total = records | sum(attribute='amount') %}
+              <div class="d-flex justify-content-between">
+                <span><i class="fas fa-calculator me-1"></i>總計</span>
+                <strong class="{% if all_total < 0 %}text-danger{% else %}text-success{% endif %}">
+                  ${{ '%.2f'|format(all_total) }}
+                </strong>
+              </div>
+            </div>
+          {% else %}
+            <div class="text-center text-muted p-3">目前沒有記錄</div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 快速統計 -->
+  <div class="row mt-4">
+    <div class="col-12">
+      <div class="card">
+        <div class="card-header">
+          <h5 class="mb-0"><i class="fas fa-chart-bar me-1"></i>快速統計</h5>
+        </div>
+        <div class="card-body">
+          <div class="row text-center">
+            <div class="col-md-3">
+              <div class="border-end">
+                <h4 class="text-primary">{{ todos | selectattr('done', 'equalto', false) | list | length }}</h4>
+                <small class="text-muted">待辦事項</small>
+              </div>
+            </div>
+            <div class="col-md-3">
+              <div class="border-end">
+                <h4 class="text-success">{{ todos | selectattr('done', 'equalto', true) | list | length }}</h4>
+                <small class="text-muted">已完成</small>
+              </div>
+            </div>
+            <div class="col-md-3">
+              <div class="border-end">
+                <h4 class="text-info">{{ records | length }}</h4>
+                <small class="text-muted">記帳筆數</small>
+              </div>
+            </div>
+            <div class="col-md-3">
+              {% set balance = records | sum(attribute='amount') %}
+              <h4 class="{% if balance < 0 %}text-danger{% else %}text-success{% endif %}">
+                ${{ '%.0f'|format(balance) }}
+              </h4>
+              <small class="text-muted">帳戶餘額</small>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="mt-4 text-center">
+    <a href="{{ url_for('dashboard.dashboard_view') }}" class="btn btn-secondary">
+      <i class="fas fa-arrow-left me-1"></i>返回主頁
+    </a>
+  </div>
+</div>
+
+<script>
+  // 自動關閉 Flash 訊息
+  setTimeout(function() {
+    const alerts = document.querySelectorAll('.alert');
+    alerts.forEach(alert => {
+      const bsAlert = new bootstrap.Alert(alert);
+      bsAlert.close();
+    });
+  }, 3000);
+
+  // 拖曳排序功能（如果有 Sortable.js）
+  const list = document.getElementById('todo-list');
+  if (typeof Sortable !== 'undefined') {
+    new Sortable(list, {
+      animation: 150
+    });
+  }
+</script>
+{% endblock %}

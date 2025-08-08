@@ -1,0 +1,81 @@
+{% extends 'base.html' %}
+{% block title %}InfoPlay{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="text-end text-muted">使用者：{{ current_user.username }} <a href="{{ url_for('auth.logout') }}">登出</a></div>
+    <h2 class="mb-4">你好，{{ current_user.username }}！</h2>
+
+    <div class="row">
+        <div class="col-md-4 mb-3">
+            <div class="card h-100">
+                <div class="card-body text-center">
+                    <h5 class="card-title">🎮 簡易遊戲</h5>
+                    <p class="card-text">簡單有趣的小遊戲</p>
+                    <a href="{{ url_for('game.game_menu') }}" class="btn btn-primary">
+                        <i class="fas fa-gamepad me-1"></i>開始遊戲
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4 mb-3">
+            <div class="card h-100">
+                <div class="card-body text-center">
+                    <h5 class="card-title">🧾 待辦 & 記帳</h5>
+                    <p class="card-text">管理任務與支出</p>
+                    <a href="{{ url_for('account.account_home') }}" class="btn btn-success">
+                        <i class="fas fa-tasks me-1"></i>待辦 & 記帳
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4 mb-3">
+            <div class="card h-100">
+                <div class="card-body text-center">
+                    <h5 class="card-title">📰 天氣與新聞</h5>
+                    <p class="card-text">查詢今日天氣與即時新聞</p>
+                    <a href="{{ url_for('info.info_page') }}" class="btn btn-info">
+                        <i class="fas fa-newspaper me-1"></i>查看資訊
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 快捷統計資訊 -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-chart-bar me-1"></i>快速預覽</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row text-center">
+                        <div class="col-md-4">
+                            <div class="border-end">
+                                <h4 class="text-primary">🎮</h4>
+                                <small class="text-muted">簡易遊戲</small>
+                                <p class="mb-0">遊戲 & 遊戲</p>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="border-end">
+                                <h4 class="text-success">📋</h4>
+                                <small class="text-muted">任務管理</small>
+                                <p class="mb-0">待辦 & 記帳</p>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <h4 class="text-info">📰</h4>
+                            <small class="text-muted">資訊查詢</small>
+                            <p class="mb-0">天氣 & 新聞</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

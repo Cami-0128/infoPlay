@@ -1,0 +1,376 @@
+{% extends "base.html" %}
+
+{% block title %}猜數字遊戲{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header bg-warning text-dark text-center">
+                    <h3><i class="fas fa-brain"></i> 猜數字遊戲</h3>
+                </div>
+                <div class="card-body text-center">
+                    <!-- 遊戲區域 -->
+                    <div id="gameArea">
+                        <div class="mb-4">
+                            <h4 class="text-primary">我想了一個 1 到 100 之間的數字</h4>
+                            <p class="text-muted">你能用最少的次數猜出來嗎？</p>
+                        </div>
+                        
+                        <!-- 輸入區域 -->
+                        <div class="mb-4">
+                            <div class="input-group justify-content-center">
+                                <input type="number" id="guessInput" class="form-control text-center" 
+                                       placeholder="輸入你的猜測 (1-100)" min="1" max="100" style="max-width: 200px;">
+                                <button id="submitGuess" class="btn btn-primary">猜！</button>
+                            </div>
+                        </div>
+                        
+                        <!-- 提示區域 -->
+                        <div id="hintArea" class="mb-4">
+                            <div id="hintMessage" class="alert alert-info" style="display: none;"></div>
+                        </div>
+                        
+                        <!-- 遊戲統計 -->
+                        <div class="row mb-4">
+                            <div class="col-md-4">
+                                <h5>嘗試次數: <span id="attempts">0</span></h5>
+                            </div>
+                            <div class="col-md-4">
+                                <h5>最佳記錄: <span id="bestScore">-</span></h5>
+                            </div>
+                            <div class="col-md-4">
+                                <h5>剩餘範圍: <span id="range">1-100</span></h5>
+                            </div>
+                        </div>
+                        
+                        <!-- 猜測歷史 -->
+                        <div id="historyArea" style="display: none;">
+                            <h6>猜測歷史：</h6>
+                            <div id="guessHistory" class="d-flex flex-wrap justify-content-center gap-2 mb-3"></div>
+                        </div>
+                    </div>
+                    
+                    <!-- 遊戲控制 -->
+                    <div class="mb-3">
+                        <button id="newGameBtn" class="btn btn-success me-2">新遊戲</button>
+                        <button id="giveUpBtn" class="btn btn-danger">放棄</button>
+                    </div>
+                    
+                    <!-- 遊戲說明 -->
+                    <div class="mt-3">
+                        <small class="text-muted">
+                            🎯 目標：用最少的次數猜出數字<br>
+                            💯 分數計算：(101 - 嘗試次數) × 10<br>
+                            🏆 完美分數：1000分（1次猜中）
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 遊戲結束模態框 -->
+<div class="modal fade" id="gameOverModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header" id="modalHeader">
+                <h5 class="modal-title" id="modalTitle">遊戲結束</h5>
+            </div>
+            <div class="modal-body text-center">
+                <div id="resultMessage"></div>
+                <h4>答案是：<span id="correctAnswer">?</span></h4>
+                <p>嘗試次數：<span id="finalAttempts">0</span></p>
+                <p>得分：<span id="finalScore">0</span></p>
+                <div id="scoreRating" class="mt-3"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">關閉</button>
+                <button type="button" class="btn btn-primary" id="playAgainBtn">再玩一次</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+class GuessNumberGame {
+    constructor() {
+        this.targetNumber = 0;
+        this.attempts = 0;
+        this.minRange = 1;
+        this.maxRange = 100;
+        this.guessHistory = [];
+        this.gameOver = false;
+        this.bestScore = this.loadBestScore();
+        
+        this.bindEvents();
+        this.newGame();
+        this.updateBestScore();
+    }
+    
+    bindEvents() {
+        // 輸入框回車事件
+        document.getElementById('guessInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                this.makeGuess();
+            }
+        });
+        
+        // 按鈕事件
+        document.getElementById('submitGuess').addEventListener('click', () => this.makeGuess());
+        document.getElementById('newGameBtn').addEventListener('click', () => this.newGame());
+        document.getElementById('giveUpBtn').addEventListener('click', () => this.giveUp());
+        document.getElementById('playAgainBtn').addEventListener('click', () => this.newGame());
+    }
+    
+    newGame() {
+        this.targetNumber = Math.floor(Math.random() * 100) + 1;
+        this.attempts = 0;
+        this.minRange = 1;
+        this.maxRange = 100;
+        this.guessHistory = [];
+        this.gameOver = false;
+        
+        // 重置UI
+        document.getElementById('guessInput').value = '';
+        document.getElementById('guessInput').disabled = false;
+        document.getElementById('submitGuess').disabled = false;
+        document.getElementById('hintMessage').style.display = 'none';
+        document.getElementById('historyArea').style.display = 'none';
+        
+        // 關閉模態框
+        const modal = bootstrap.Modal.getInstance(document.getElementById('gameOverModal'));
+        if (modal) modal.hide();
+        
+        this.updateUI();
+        console.log('新遊戲開始，答案是：', this.targetNumber); // 開發時可以看答案
+    }
+    
+    makeGuess() {
+        if (this.gameOver) return;
+        
+        const input = document.getElementById('guessInput');
+        const guess = parseInt(input.value);
+        
+        // 驗證輸入
+        if (isNaN(guess) || guess < 1 || guess > 100) {
+            this.showHint('請輸入 1 到 100 之間的數字！', 'danger');
+            return;
+        }
+        
+        if (guess < this.minRange || guess > this.maxRange) {
+            if (this.minRange === this.maxRange) {
+                this.showHint(`根據之前的猜測，答案只能是 ${this.minRange}！`, 'info');
+            } else {
+                this.showHint(`請輸入 ${this.minRange} 到 ${this.maxRange} 之間的數字！`, 'danger');
+            }
+            return;
+        }
+        
+        // 檢查是否已經猜過
+        if (this.guessHistory.some(h => h.number === guess)) {
+            this.showHint('你已經猜過這個數字了！', 'warning');
+            return;
+        }
+        
+        this.attempts++;
+        input.value = '';
+        
+        // 判斷猜測結果
+        let result, hintClass;
+        if (guess === this.targetNumber) {
+            result = 'correct';
+            this.showHint('🎉 恭喜你！猜對了！', 'success');
+            this.gameWin();
+        } else if (guess < this.targetNumber) {
+            result = 'low';
+            this.minRange = Math.max(this.minRange, guess + 1);
+            this.showHint(`太小了！數字比 ${guess} 大`, 'info');
+        } else {
+            result = 'high';
+            this.maxRange = Math.min(this.maxRange, guess - 1);
+            this.showHint(`太大了！數字比 ${guess} 小`, 'info');
+        }
+        
+        // 記錄猜測歷史
+        this.guessHistory.push({
+            number: guess,
+            result: result,
+            attempt: this.attempts
+        });
+        
+        this.updateUI();
+        this.updateHistory();
+        
+        // 檢查範圍邏輯
+        if (this.minRange > this.maxRange && result !== 'correct') {
+            this.showHint('範圍出現問題，重新開始！', 'danger');
+            setTimeout(() => this.newGame(), 2000);
+        } else if (this.minRange === this.maxRange && result !== 'correct') {
+            // 當範圍縮小到只剩一個數字時，自動結束遊戲
+            setTimeout(() => {
+                this.showHint(`根據邏輯推導，答案是 ${this.minRange}！`, 'success');
+                this.gameWin();
+            }, 1000);
+        }
+    }
+    
+    gameWin() {
+        this.gameOver = true;
+        const score = this.calculateScore();
+        
+        // 更新最佳記錄
+        if (score > this.bestScore) {
+            this.bestScore = score;
+            this.saveBestScore(score);
+            this.updateBestScore();
+        }
+        
+        // 禁用輸入
+        document.getElementById('guessInput').disabled = true;
+        document.getElementById('submitGuess').disabled = true;
+        
+        // 延遲顯示結果模態框
+        setTimeout(() => {
+            this.showGameOverModal(true, score);
+            this.saveScore(score);
+        }, 1500);
+    }
+    
+    giveUp() {
+        if (this.gameOver || this.attempts === 0) return;
+        
+        this.gameOver = true;
+        document.getElementById('guessInput').disabled = true;
+        document.getElementById('submitGuess').disabled = true;
+        
+        this.showGameOverModal(false, 0);
+    }
+    
+    showGameOverModal(won, score) {
+        const modal = new bootstrap.Modal(document.getElementById('gameOverModal'));
+        const modalHeader = document.getElementById('modalHeader');
+        const modalTitle = document.getElementById('modalTitle');
+        const resultMessage = document.getElementById('resultMessage');
+        const scoreRating = document.getElementById('scoreRating');
+        
+        document.getElementById('correctAnswer').textContent = this.targetNumber;
+        document.getElementById('finalAttempts').textContent = this.attempts;
+        document.getElementById('finalScore').textContent = score;
+        
+        if (won) {
+            modalHeader.className = 'modal-header bg-success text-white';
+            modalTitle.textContent = '🎉 恭喜獲勝！';
+            resultMessage.innerHTML = '<h5 class="text-success">你成功猜出了數字！</h5>';
+            
+            // 評價系統
+            let rating = '';
+            if (this.attempts === 1) {
+                rating = '<div class="badge bg-warning fs-6">🎯 神射手！</div>';
+            } else if (this.attempts <= 3) {
+                rating = '<div class="badge bg-success fs-6">🏆 優秀！</div>';
+            } else if (this.attempts <= 7) {
+                rating = '<div class="badge bg-info fs-6">👍 不錯！</div>';
+            } else if (this.attempts <= 10) {
+                rating = '<div class="badge bg-secondary fs-6">😊 還行！</div>';
+            } else {
+                rating = '<div class="badge bg-danger fs-6">😅 需要練習！</div>';
+            }
+            scoreRating.innerHTML = rating;
+        } else {
+            modalHeader.className = 'modal-header bg-danger text-white';
+            modalTitle.textContent = '😢 遊戲結束';
+            resultMessage.innerHTML = '<h5 class="text-danger">很遺憾，你放棄了！</h5>';
+            scoreRating.innerHTML = '<div class="badge bg-secondary fs-6">下次再試試吧！</div>';
+        }
+        
+        modal.show();
+    }
+    
+    calculateScore() {
+        // 分數計算：基礎分數 1010，每次嘗試扣 10 分
+        return Math.max(0, 1010 - this.attempts * 10);
+    }
+    
+    showHint(message, type) {
+        const hintMessage = document.getElementById('hintMessage');
+        hintMessage.textContent = message;
+        hintMessage.className = `alert alert-${type}`;
+        hintMessage.style.display = 'block';
+    }
+    
+    updateUI() {
+        document.getElementById('attempts').textContent = this.attempts;
+        document.getElementById('range').textContent = `${this.minRange}-${this.maxRange}`;
+    }
+    
+    updateBestScore() {
+        document.getElementById('bestScore').textContent = this.bestScore > 0 ? this.bestScore : '-';
+    }
+    
+    updateHistory() {
+        const historyArea = document.getElementById('historyArea');
+        const historyContainer = document.getElementById('guessHistory');
+        
+        if (this.guessHistory.length > 0) {
+            historyArea.style.display = 'block';
+            historyContainer.innerHTML = '';
+            
+            this.guessHistory.forEach((guess, index) => {
+                const badge = document.createElement('span');
+                badge.textContent = guess.number;
+                badge.style.margin = '2px'; // 添加間距
+                
+                if (guess.result === 'correct') {
+                    badge.className = 'badge bg-success';
+                } else if (guess.result === 'high') {
+                    badge.className = 'badge bg-danger';
+                } else {
+                    badge.className = 'badge bg-info';
+                }
+                
+                historyContainer.appendChild(badge);
+            });
+        }
+    }
+    
+    loadBestScore() {
+        const saved = localStorage.getItem('guessNumberBestScore');
+        return saved ? parseInt(saved) : 0;
+    }
+    
+    saveBestScore(score) {
+        localStorage.setItem('guessNumberBestScore', score.toString());
+    }
+    
+    saveScore(score) {
+        fetch('/game/save_score', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                game_type: 'guess_number',
+                score: score,
+                level: 1,
+                attempts: this.attempts
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            console.log('分數儲存結果:', data);
+        })
+        .catch(error => {
+            console.error('儲存分數時發生錯誤:', error);
+        });
+    }
+}
+
+// 初始化遊戲
+document.addEventListener('DOMContentLoaded', function() {
+    new GuessNumberGame();
+});
+</script>
+{% endblock %}

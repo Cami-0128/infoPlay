@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+
+{% block title %}天氣資訊 - InfoPlay{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>今日天氣資訊</h2>
+    
+    {% if weather %}
+    <div class="card mt-3 shadow-sm">
+        <div class="card-body">
+            {% set weather_parts = weather.split(':') %}
+            {% if weather_parts|length >= 2 %}
+                <h5 class="card-title">{{ weather_parts[0] }}</h5>
+                <p class="card-text">{{ weather_parts[1] }}</p>
+            {% else %}
+                <p class="card-text">{{ weather }}</p>
+            {% endif %}
+        </div>
+    </div>
+    {% else %}
+    <div class="alert alert-warning" role="alert">
+        無法取得天氣資訊，請稍後再試
+    </div>
+    {% endif %}
+    
+    <a href="{{ url_for('dashboard.dashboard_view') }}" class="btn btn-secondary mt-3">← 返回主頁</a>
+</div>
+{% endblock %}

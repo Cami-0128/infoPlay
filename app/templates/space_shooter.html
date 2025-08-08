@@ -1,0 +1,750 @@
+{% extends "base.html" %}
+
+{% block title %}太空射擊遊戲{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header bg-dark text-white text-center">
+                    <h3><i class="fas fa-rocket"></i> 太空射擊遊戲</h3>
+                </div>
+                <div class="card-body text-center">
+                    <!-- 遊戲畫布 -->
+                    <canvas id="gameCanvas" width="800" height="600" style="border: 2px solid #333; background: linear-gradient(to bottom, #000428, #004e92);"></canvas>
+                    
+                    <!-- 遊戲信息 -->
+                    <div class="mt-3">
+                        <div class="row">
+                            <div class="col-md-2">
+                                <h6>分數: <span id="score">0</span></h6>
+                            </div>
+                            <div class="col-md-2">
+                                <h6>血量: <span id="hp">100</span></h6>
+                            </div>
+                            <div class="col-md-2">
+                                <h6>攻擊: <span id="attack">10</span></h6>
+                            </div>
+                            <div class="col-md-2">
+                                <h6>等級: <span id="level">1</span></h6>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="progress" style="height: 20px;">
+                                    <div id="hpBar" class="progress-bar bg-success" role="progressbar" style="width: 100%"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 遊戲控制 -->
+                    <div class="mt-3">
+                        <button id="startBtn" class="btn btn-success me-2">開始遊戲</button>
+                        <button id="pauseBtn" class="btn btn-warning me-2" disabled>暫停</button>
+                        <button id="restartBtn" class="btn btn-danger">重新開始</button>
+                    </div>
+                    
+                    <!-- 遊戲說明 -->
+                    <div class="mt-3">
+                        <small class="text-muted">
+                            使用 ← → 鍵移動，空白鍵射擊，ESC 鍵暫停<br>
+                            綠色道具回復血量，黃色道具提升攻擊力
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 遊戲結束模態框 -->
+<div class="modal fade" id="gameOverModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title">遊戲結束</h5>
+            </div>
+            <div class="modal-body text-center">
+                <h4 id="endMessage">遊戲結束</h4>
+                <p>最終分數: <span id="finalScore">0</span></p>
+                <p>等級: <span id="finalLevel">1</span></p>
+                <p>攻擊力: <span id="finalAttack">10</span></p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">關閉</button>
+                <button type="button" class="btn btn-primary" id="playAgainBtn">再玩一次</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 關卡提示模態框 -->
+<div class="modal fade" id="levelModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-warning text-dark">
+                <h5 class="modal-title">關卡完成</h5>
+            </div>
+            <div class="modal-body text-center">
+                <h4>進入第 <span id="nextLevel">2</span> 關</h4>
+                <p>準備迎接更強的敵人！</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+class SpaceShooter {
+    constructor() {
+        this.canvas = document.getElementById('gameCanvas');
+        this.ctx = this.canvas.getContext('2d');
+        this.gameLoop = null;
+        this.isRunning = false;
+        this.isPaused = false;
+        
+        // 遊戲狀態
+        this.score = 0;
+        this.hp = 100;
+        this.attack = 10;
+        this.level = 1;
+        this.maxLevel = 5;
+        this.gameState = 'playing'; // 'playing', 'showLevel', 'gameOver'
+        this.levelShowTimer = 0;
+        
+        // 遊戲物件
+        this.player = {
+            x: this.canvas.width / 2 - 25,
+            y: this.canvas.height - 60,
+            width: 50,
+            height: 40,
+            speed: 5
+        };
+        
+        this.bullets = [];
+        this.enemies = [];
+        this.enemyBullets = [];
+        this.items = [];
+        this.particles = [];
+        this.stars = [];
+        
+        this.lastTime = 0;
+        this.initStars();
+        this.bindEvents();
+        this.keys = {};
+        
+        // 敵人類型配置
+        this.enemyTypes = {
+            weak: {
+                color: '#F44336',
+                hp: 20,
+                shootCooldown: 120,
+                speed: 2
+            },
+            strong: {
+                color: '#2196F3',
+                hp: 50,
+                shootCooldown: 90,
+                speed: 1.5
+            },
+            boss: {
+                color: '#9C27B0',
+                hp: 100,
+                shootCooldown: 60,
+                speed: 1
+            }
+        };
+    }
+    
+    initStars() {
+        this.stars = [];
+        for (let i = 0; i < 80; i++) {
+            this.stars.push({
+                x: Math.random() * this.canvas.width,
+                y: Math.random() * this.canvas.height,
+                size: Math.random() * 2 + 1,
+                alpha: Math.random() * 0.5 + 0.3,
+                twinkle: Math.random() * 0.02 + 0.005,
+                dir: Math.random() > 0.5 ? 1 : -1
+            });
+        }
+    }
+    
+    bindEvents() {
+        // 鍵盤事件
+        document.addEventListener('keydown', (e) => {
+            this.keys[e.code] = true;
+            if (e.code === 'Space') {
+                e.preventDefault();
+                this.shoot();
+            }
+            if (e.code === 'Escape') {
+                e.preventDefault();
+                this.togglePause();
+            }
+        });
+        
+        document.addEventListener('keyup', (e) => {
+            this.keys[e.code] = false;
+        });
+        
+        // 按鈕事件
+        document.getElementById('startBtn').addEventListener('click', () => this.startGame());
+        document.getElementById('pauseBtn').addEventListener('click', () => this.togglePause());
+        document.getElementById('restartBtn').addEventListener('click', () => this.restartGame());
+        document.getElementById('playAgainBtn').addEventListener('click', () => this.restartGame());
+    }
+    
+    startGame() {
+        if (!this.isRunning) {
+            this.isRunning = true;
+            this.isPaused = false;
+            this.gameState = 'playing';
+            document.getElementById('startBtn').disabled = true;
+            document.getElementById('pauseBtn').disabled = false;
+            this.generateLevel(this.level);
+            this.gameLoop = requestAnimationFrame((time) => this.update(time));
+        }
+    }
+    
+    togglePause() {
+        if (this.isRunning) {
+            this.isPaused = !this.isPaused;
+            if (!this.isPaused) {
+                this.gameLoop = requestAnimationFrame((time) => this.update(time));
+            }
+        }
+    }
+    
+    restartGame() {
+        this.isRunning = false;
+        this.isPaused = false;
+        this.score = 0;
+        this.hp = 100;
+        this.attack = 10;
+        this.level = 1;
+        this.gameState = 'playing';
+        this.bullets = [];
+        this.enemies = [];
+        this.enemyBullets = [];
+        this.items = [];
+        this.particles = [];
+        this.levelShowTimer = 0;
+        this.player.x = this.canvas.width / 2 - 25;
+        this.player.y = this.canvas.height - 60;
+        
+        this.updateUI();
+        document.getElementById('startBtn').disabled = false;
+        document.getElementById('pauseBtn').disabled = true;
+        
+        // 關閉模態框
+        const gameOverModal = bootstrap.Modal.getInstance(document.getElementById('gameOverModal'));
+        if (gameOverModal) gameOverModal.hide();
+        
+        const levelModal = bootstrap.Modal.getInstance(document.getElementById('levelModal'));
+        if (levelModal) levelModal.hide();
+        
+        this.draw();
+    }
+    
+    generateLevel(level) {
+        this.enemies = [];
+        const positions = [];
+        
+        if (level === 1) {
+            // 第一關：簡單的一排敵人
+            for (let x = 100; x < 700; x += 100) {
+                positions.push({x: x, y: 80, type: 'weak'});
+            }
+        } else if (level === 2) {
+            // 第二關：兩排敵人
+            for (let x = 80; x < 720; x += 80) {
+                positions.push({x: x, y: 60, type: 'weak'});
+                positions.push({x: x, y: 120, type: 'weak'});
+            }
+        } else if (level === 3) {
+            // 第三關：混合強弱敵人
+            for (let x = 60; x < 740; x += 60) {
+                for (let y = 60; y < 180; y += 60) {
+                    const type = (x + y) % 120 === 0 ? 'strong' : 'weak';
+                    positions.push({x: x, y: y, type: type});
+                }
+            }
+        } else if (level === 4) {
+            // 第四關：更多強敵
+            for (let x = 80; x < 720; x += 80) {
+                positions.push({x: x, y: 50, type: 'strong'});
+                positions.push({x: x, y: 110, type: 'weak'});
+                positions.push({x: x, y: 170, type: 'strong'});
+            }
+        } else if (level >= 5) {
+            // 第五關及以上：BOSS關
+            positions.push({x: 350, y: 100, type: 'boss'});
+            for (let x = 100; x < 700; x += 150) {
+                positions.push({x: x, y: 180, type: 'strong'});
+            }
+        }
+        
+        positions.forEach(pos => {
+            const startX = pos.x < this.canvas.width / 2 ? -50 : this.canvas.width + 50;
+            const enemy = {
+                x: startX,
+                y: pos.y,
+                targetX: pos.x,
+                targetY: pos.y,
+                width: pos.type === 'boss' ? 80 : 40,
+                height: pos.type === 'boss' ? 60 : 30,
+                type: pos.type,
+                hp: this.enemyTypes[pos.type].hp,
+                maxHp: this.enemyTypes[pos.type].hp,
+                shootTimer: 0,
+                arrived: false
+            };
+            this.enemies.push(enemy);
+        });
+    }
+    
+    update(currentTime) {
+        if (!this.isRunning || this.isPaused) return;
+        
+        const deltaTime = currentTime - this.lastTime;
+        this.lastTime = currentTime;
+        
+        if (this.gameState === 'playing') {
+            // 更新玩家位置
+            this.updatePlayer();
+            
+            // 更新敵人
+            this.updateEnemies();
+            
+            // 更新子彈
+            this.updateBullets();
+            this.updateEnemyBullets();
+            
+            // 更新道具
+            this.updateItems();
+            
+            // 更新粒子效果
+            this.updateParticles();
+            
+            // 更新星星
+            this.updateStars();
+            
+            // 碰撞檢測
+            this.checkCollisions();
+            
+            // 檢查遊戲狀態
+            if (this.hp <= 0) {
+                this.gameOver('你失敗了！');
+                return;
+            }
+            
+            if (this.enemies.length === 0) {
+                if (this.level >= this.maxLevel) {
+                    this.gameOver('恭喜通關！');
+                } else {
+                    this.gameState = 'showLevel';
+                    this.levelShowTimer = 90; // 1.5秒
+                }
+                return;
+            }
+        } else if (this.gameState === 'showLevel') {
+            this.levelShowTimer--;
+            if (this.levelShowTimer <= 0) {
+                this.level++;
+                this.generateLevel(this.level);
+                this.gameState = 'playing';
+                
+                // 顯示關卡提示
+                document.getElementById('nextLevel').textContent = this.level;
+                const levelModal = new bootstrap.Modal(document.getElementById('levelModal'));
+                levelModal.show();
+                setTimeout(() => {
+                    levelModal.hide();
+                }, 2000);
+            }
+        }
+        
+        // 繪製
+        this.draw();
+        
+        // 更新UI
+        this.updateUI();
+        
+        this.gameLoop = requestAnimationFrame((time) => this.update(time));
+    }
+    
+    updatePlayer() {
+        if (this.keys['ArrowLeft'] && this.player.x > 0) {
+            this.player.x -= this.player.speed;
+        }
+        if (this.keys['ArrowRight'] && this.player.x < this.canvas.width - this.player.width) {
+            this.player.x += this.player.speed;
+        }
+    }
+    
+    updateEnemies() {
+        this.enemies.forEach(enemy => {
+            if (!enemy.arrived) {
+                const dx = enemy.targetX - enemy.x;
+                const dy = enemy.targetY - enemy.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                const speed = this.enemyTypes[enemy.type].speed * 3;
+                
+                if (distance < speed) {
+                    enemy.x = enemy.targetX;
+                    enemy.y = enemy.targetY;
+                    enemy.arrived = true;
+                } else {
+                    enemy.x += (dx / distance) * speed;
+                    enemy.y += (dy / distance) * speed;
+                }
+            } else {
+                // 已到達位置的敵人開始射擊
+                enemy.shootTimer++;
+                if (enemy.shootTimer >= this.enemyTypes[enemy.type].shootCooldown) {
+                    this.enemyShoot(enemy);
+                    enemy.shootTimer = 0;
+                }
+            }
+        });
+    }
+    
+    enemyShoot(enemy) {
+        this.enemyBullets.push({
+            x: enemy.x + enemy.width / 2 - 2,
+            y: enemy.y + enemy.height,
+            width: 4,
+            height: 10,
+            speed: 3
+        });
+    }
+    
+    updateBullets() {
+        for (let i = this.bullets.length - 1; i >= 0; i--) {
+            this.bullets[i].y -= this.bullets[i].speed;
+            if (this.bullets[i].y < 0) {
+                this.bullets.splice(i, 1);
+            }
+        }
+    }
+    
+    updateEnemyBullets() {
+        for (let i = this.enemyBullets.length - 1; i >= 0; i--) {
+            const bullet = this.enemyBullets[i];
+            bullet.y += bullet.speed;
+            
+            // 與玩家碰撞
+            if (this.isColliding(bullet, this.player)) {
+                this.hp -= 10;
+                this.createExplosion(bullet.x, bullet.y);
+                this.enemyBullets.splice(i, 1);
+                continue;
+            }
+            
+            if (bullet.y > this.canvas.height) {
+                this.enemyBullets.splice(i, 1);
+            }
+        }
+        
+        // 子彈互相抵消
+        for (let i = this.bullets.length - 1; i >= 0; i--) {
+            for (let j = this.enemyBullets.length - 1; j >= 0; j--) {
+                if (this.isColliding(this.bullets[i], this.enemyBullets[j])) {
+                    this.createExplosion(this.bullets[i].x, this.bullets[i].y);
+                    this.bullets.splice(i, 1);
+                    this.enemyBullets.splice(j, 1);
+                    break;
+                }
+            }
+        }
+    }
+    
+    updateItems() {
+        for (let i = this.items.length - 1; i >= 0; i--) {
+            const item = this.items[i];
+            item.y += 3;
+            
+            // 與玩家碰撞
+            if (this.isColliding(item, this.player)) {
+                this.applyItem(item.type);
+                this.items.splice(i, 1);
+                continue;
+            }
+            
+            if (item.y > this.canvas.height) {
+                this.items.splice(i, 1);
+            }
+        }
+    }
+    
+    updateStars() {
+        this.stars.forEach(star => {
+            star.alpha += star.twinkle * star.dir;
+            if (star.alpha >= 1) {
+                star.alpha = 1;
+                star.dir = -1;
+            } else if (star.alpha <= 0.3) {
+                star.alpha = 0.3;
+                star.dir = 1;
+            }
+        });
+    }
+    
+    updateParticles() {
+        for (let i = this.particles.length - 1; i >= 0; i--) {
+            const particle = this.particles[i];
+            particle.x += particle.vx;
+            particle.y += particle.vy;
+            particle.life--;
+            particle.alpha *= 0.95;
+            
+            if (particle.life <= 0 || particle.alpha < 0.1) {
+                this.particles.splice(i, 1);
+            }
+        }
+    }
+    
+    shoot() {
+        if (this.isRunning && !this.isPaused && this.gameState === 'playing' && this.bullets.length < 10) {
+            this.bullets.push({
+                x: this.player.x + this.player.width / 2 - 2,
+                y: this.player.y,
+                width: 4,
+                height: 10,
+                speed: 8
+            });
+        }
+    }
+    
+    checkCollisions() {
+        // 子彈與敵人碰撞
+        for (let i = this.bullets.length - 1; i >= 0; i--) {
+            for (let j = this.enemies.length - 1; j >= 0; j--) {
+                const bullet = this.bullets[i];
+                const enemy = this.enemies[j];
+                
+                if (bullet && enemy.arrived && this.isColliding(bullet, enemy)) {
+                    // 造成傷害
+                    enemy.hp -= this.attack;
+                    this.createExplosion(bullet.x, bullet.y);
+                    this.bullets.splice(i, 1);
+                    
+                    if (enemy.hp <= 0) {
+                        // 敵人死亡
+                        this.score += enemy.type === 'boss' ? 50 : (enemy.type === 'strong' ? 20 : 10);
+                        this.createExplosion(enemy.x + enemy.width / 2, enemy.y + enemy.height / 2);
+                        
+                        // 掉落道具
+                        if (Math.random() < 0.3) {
+                            const itemType = Math.random() < 0.6 ? 'heal' : 'power';
+                            this.items.push({
+                                x: enemy.x + enemy.width / 2 - 10,
+                                y: enemy.y + enemy.height / 2 - 10,
+                                width: 20,
+                                height: 20,
+                                type: itemType
+                            });
+                        }
+                        
+                        this.enemies.splice(j, 1);
+                    }
+                    break;
+                }
+            }
+        }
+        
+        // 玩家與敵人碰撞
+        for (let i = this.enemies.length - 1; i >= 0; i--) {
+            const enemy = this.enemies[i];
+            if (enemy.arrived && this.isColliding(this.player, enemy)) {
+                this.hp -= 20;
+                this.createExplosion(enemy.x + enemy.width / 2, enemy.y + enemy.height / 2);
+                this.enemies.splice(i, 1);
+            }
+        }
+    }
+    
+    applyItem(type) {
+        if (type === 'heal') {
+            this.hp = Math.min(100, this.hp + 20);
+        } else if (type === 'power') {
+            this.attack += 5;
+        }
+    }
+    
+    isColliding(rect1, rect2) {
+        return rect1.x < rect2.x + rect2.width &&
+               rect1.x + rect1.width > rect2.x &&
+               rect1.y < rect2.y + rect2.height &&
+               rect1.y + rect1.height > rect2.y;
+    }
+    
+    createExplosion(x, y) {
+        for (let i = 0; i < 12; i++) {
+            this.particles.push({
+                x: x,
+                y: y,
+                vx: (Math.random() - 0.5) * 8,
+                vy: (Math.random() - 0.5) * 8,
+                life: 30,
+                alpha: 1,
+                color: `hsl(${Math.random() * 60 + 10}, 100%, 60%)`
+            });
+        }
+    }
+    
+    draw() {
+        // 清除畫布
+        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        
+        // 繪製星空背景
+        this.drawStars();
+        
+        if (this.gameState === 'showLevel') {
+            // 關卡過渡畫面
+            this.ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+            this.ctx.font = '48px Arial';
+            this.ctx.textAlign = 'center';
+            this.ctx.fillText(`第 ${this.level + 1} 關`, this.canvas.width / 2, this.canvas.height / 2);
+            return;
+        }
+        
+        // 繪製玩家
+        this.ctx.fillStyle = '#4CAF50';
+        this.ctx.fillRect(this.player.x, this.player.y, this.player.width, this.player.height);
+        
+        // 繪製玩家子彈
+        this.ctx.fillStyle = '#FFEB3B';
+        this.bullets.forEach(bullet => {
+            this.ctx.fillRect(bullet.x, bullet.y, bullet.width, bullet.height);
+        });
+        
+        // 繪製敵人
+        this.enemies.forEach(enemy => {
+            this.ctx.fillStyle = this.enemyTypes[enemy.type].color;
+            this.ctx.fillRect(enemy.x, enemy.y, enemy.width, enemy.height);
+            
+            // 繪製血量條（針對強敵和BOSS）
+            if (enemy.type !== 'weak' && enemy.arrived) {
+                const hpRatio = enemy.hp / enemy.maxHp;
+                this.ctx.fillStyle = 'rgba(255, 0, 0, 0.7)';
+                this.ctx.fillRect(enemy.x, enemy.y - 8, enemy.width, 4);
+                this.ctx.fillStyle = 'rgba(0, 255, 0, 0.7)';
+                this.ctx.fillRect(enemy.x, enemy.y - 8, enemy.width * hpRatio, 4);
+            }
+        });
+        
+        // 繪製敵人子彈
+        this.ctx.fillStyle = '#FF5722';
+        this.enemyBullets.forEach(bullet => {
+            this.ctx.fillRect(bullet.x, bullet.y, bullet.width, bullet.height);
+        });
+        
+        // 繪製道具
+        this.items.forEach(item => {
+            this.ctx.fillStyle = item.type === 'heal' ? '#4CAF50' : '#FFC107';
+            this.ctx.fillRect(item.x, item.y, item.width, item.height);
+            
+            // 繪製道具圖標
+            this.ctx.fillStyle = 'white';
+            this.ctx.font = '12px Arial';
+            this.ctx.textAlign = 'center';
+            this.ctx.fillText(item.type === 'heal' ? '+' : '⚡', 
+                            item.x + item.width/2, item.y + item.height/2 + 4);
+        });
+        
+        // 繪製粒子效果
+        this.particles.forEach(particle => {
+            this.ctx.globalAlpha = particle.alpha;
+            this.ctx.fillStyle = particle.color;
+            this.ctx.fillRect(particle.x, particle.y, 3, 3);
+        });
+        this.ctx.globalAlpha = 1;
+        
+        // 繪製暫停提示
+        if (this.isPaused) {
+            this.ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+            this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+            this.ctx.fillStyle = 'white';
+            this.ctx.font = '48px Arial';
+            this.ctx.textAlign = 'center';
+            this.ctx.fillText('暫停', this.canvas.width / 2, this.canvas.height / 2);
+        }
+    }
+    
+    drawStars() {
+        this.stars.forEach(star => {
+            this.ctx.globalAlpha = star.alpha;
+            this.ctx.fillStyle = 'white';
+            this.ctx.fillRect(star.x, star.y, star.size, star.size);
+        });
+        this.ctx.globalAlpha = 1;
+    }
+    
+    updateUI() {
+        document.getElementById('score').textContent = this.score;
+        document.getElementById('hp').textContent = this.hp;
+        document.getElementById('attack').textContent = this.attack;
+        document.getElementById('level').textContent = this.level;
+        
+        // 更新血量條
+        const hpPercent = Math.max(0, (this.hp / 100) * 100);
+        const hpBar = document.getElementById('hpBar');
+        hpBar.style.width = hpPercent + '%';
+        
+        if (hpPercent > 60) {
+            hpBar.className = 'progress-bar bg-success';
+        } else if (hpPercent > 30) {
+            hpBar.className = 'progress-bar bg-warning';
+        } else {
+            hpBar.className = 'progress-bar bg-danger';
+        }
+    }
+    
+    gameOver(message) {
+        this.isRunning = false;
+        document.getElementById('startBtn').disabled = false;
+        document.getElementById('pauseBtn').disabled = true;
+        
+        document.getElementById('endMessage').textContent = message;
+        document.getElementById('finalScore').textContent = this.score;
+        document.getElementById('finalLevel').textContent = this.level;
+        document.getElementById('finalAttack').textContent = this.attack;
+        
+        // 儲存分數
+        this.saveScore();
+        
+        const modal = new bootstrap.Modal(document.getElementById('gameOverModal'));
+        modal.show();
+    }
+    
+    saveScore() {
+        fetch('/game/save_score', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                game_type: 'space_shooter',
+                score: this.score,
+                level: this.level,
+                attack: this.attack
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            console.log('分數儲存結果:', data);
+        })
+        .catch(error => {
+            console.error('儲存分數時發生錯誤:', error);
+        });
+    }
+}
+
+// 初始化遊戲
+document.addEventListener('DOMContentLoaded', function() {
+    const game = new SpaceShooter();
+    game.draw(); // 初始繪製
+});
+</script>
+{% endblock %}
