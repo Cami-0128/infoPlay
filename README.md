@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # 🧪 期末專案報告（未定）
 
 本專案是使用 **Python** 製作的多功能應用程式，整合以下幾個模組功能：
@@ -44,3 +45,6 @@
 git clone https://github.com/your-username/your-project.git
 cd your-project
 pip install -r requirements.txt
+=======
+# infoPlay
+>>>>>>> daa32ebf962e4301fa63182861f526058268ff93
